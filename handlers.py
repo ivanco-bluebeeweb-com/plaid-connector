@@ -17,7 +17,7 @@ from app import ext, chat
 from schemas import (
     NoParams,
     ConnectPlaidParams, ConnectionIdParam, DisconnectPlaidParams,
-    ListConnectionsParams, PlaidConnectionEntity,
+    ListConnectionsParams, PlaidConnectionEntity, PlaidObject,
     CreateLinkTokenParams, GetLinkTokenParams, ExchangePublicTokenParams,
     ItemActionParams, RemoveItemParams, GetItemParams,
     UpdateItemWebhookParams, CreatePublicTokenParams,
@@ -135,6 +135,7 @@ def _no_connection_error(connection_id: str, connections: list[dict]) -> ActionR
     data_model=PlaidConnectionEntity,
 )
 async def connect_plaid(ctx, params: ConnectPlaidParams) -> ActionResult:
+    """Execute Plaid action: connect plaid."""
     if not params.client_id:
         return ActionResult.error("client_id is required.", code="INVALID_REQUEST")
     if not params.sandbox_secret and not params.production_secret:
@@ -188,8 +189,10 @@ async def connect_plaid(ctx, params: ConnectPlaidParams) -> ActionResult:
     action_type="write",
     effects=["plaid.provider.disconnected"],
     event="plaid-connector.disconnect_plaid",
+    data_model=PlaidObject,
 )
 async def disconnect_plaid(ctx, params: DisconnectPlaidParams) -> ActionResult:
+    """Execute Plaid action: disconnect plaid."""
     connections = await _get_connections(ctx)
     if not connections:
         return ActionResult.error("No Plaid account connected.", code="NOT_CONNECTED")
@@ -215,8 +218,10 @@ async def disconnect_plaid(ctx, params: DisconnectPlaidParams) -> ActionResult:
     "list_connections",
     "List the connected Plaid accounts.",
     action_type="read",
+    data_model=PlaidObject,
 )
 async def list_connections(ctx, params: ListConnectionsParams) -> ActionResult:
+    """Execute Plaid action: list connections."""
     connections = await _get_connections(ctx)
     entities = [
         PlaidConnectionEntity(
@@ -240,8 +245,10 @@ async def list_connections(ctx, params: ListConnectionsParams) -> ActionResult:
     action_type="write",
     effects=["plaid.link_token.created"],
     event="plaid-connector.create_link_token",
+    data_model=PlaidObject,
 )
 async def create_link_token(ctx, params: CreateLinkTokenParams) -> ActionResult:
+    """Execute Plaid action: create link token."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -281,8 +288,10 @@ async def create_link_token(ctx, params: CreateLinkTokenParams) -> ActionResult:
     "get_link_token",
     "Read a Link token's own metadata (status, products requested) -- useful to confirm what a token was configured for before handing it to a client.",
     action_type="read",
+    data_model=PlaidObject,
 )
 async def get_link_token(ctx, params: GetLinkTokenParams) -> ActionResult:
+    """Execute Plaid action: get link token."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -308,6 +317,7 @@ async def get_link_token(ctx, params: GetLinkTokenParams) -> ActionResult:
     data_model=PlaidItemEntity,
 )
 async def exchange_public_token(ctx, params: ExchangePublicTokenParams) -> ActionResult:
+    """Execute Plaid action: exchange public token."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -356,8 +366,11 @@ async def _item_call(ctx, params: ItemActionParams, path: str, extra: dict | Non
     return data, None
 
 
-@chat.function("get_item", "Read one Plaid Item in full: institution, available/billed products, and error state.", action_type="read")
+@chat.function("get_item", "Read one Plaid Item in full: institution, available/billed products, and error state.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_item(ctx, params: GetItemParams) -> ActionResult:
+    """Execute Plaid action: get item."""
     data, err = await _item_call(ctx, params, "/item/get")
     if err:
         return err
@@ -377,8 +390,10 @@ async def get_item(ctx, params: GetItemParams) -> ActionResult:
     action_type="write",
     effects=["plaid.item.removed"],
     event="plaid-connector.remove_item",
+    data_model=PlaidObject,
 )
 async def remove_item(ctx, params: RemoveItemParams) -> ActionResult:
+    """Execute Plaid action: remove item."""
     data, err = await _item_call(ctx, params, "/item/remove")
     if err:
         return err
@@ -391,8 +406,10 @@ async def remove_item(ctx, params: RemoveItemParams) -> ActionResult:
     action_type="write",
     effects=["plaid.item.updated"],
     event="plaid-connector.update_item_webhook",
+    data_model=PlaidObject,
 )
 async def update_item_webhook(ctx, params: UpdateItemWebhookParams) -> ActionResult:
+    """Execute Plaid action: update item webhook."""
     data, err = await _item_call(ctx, params, "/item/webhook/update", {"webhook": params.webhook})
     if err:
         return err
@@ -405,8 +422,10 @@ async def update_item_webhook(ctx, params: UpdateItemWebhookParams) -> ActionRes
     action_type="write",
     effects=["plaid.public_token.created"],
     event="plaid-connector.create_public_token",
+    data_model=PlaidObject,
 )
 async def create_public_token(ctx, params: CreatePublicTokenParams) -> ActionResult:
+    """Execute Plaid action: create public token."""
     data, err = await _item_call(ctx, params, "/item/public_token/create")
     if err:
         return err
@@ -418,8 +437,11 @@ async def create_public_token(ctx, params: CreatePublicTokenParams) -> ActionRes
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("get_accounts", "Read every account (or a specific subset) attached to a Plaid Item -- balances, type, subtype, mask.", action_type="read")
+@chat.function("get_accounts", "Read every account (or a specific subset) attached to a Plaid Item -- balances, type, subtype, mask.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_accounts(ctx, params: GetAccountsParams) -> ActionResult:
+    """Execute Plaid action: get accounts."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/accounts/get", extra)
     if err:
@@ -437,8 +459,11 @@ async def get_accounts(ctx, params: GetAccountsParams) -> ActionResult:
     return ActionResult.success(entities, f"{len(entities)} account(s).")
 
 
-@chat.function("get_institution", "Read one financial institution known to Plaid by its institution_id -- name, logo, supported products, OAuth requirement.", action_type="read")
+@chat.function("get_institution", "Read one financial institution known to Plaid by its institution_id -- name, logo, supported products, OAuth requirement.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_institution(ctx, params: GetInstitutionParams) -> ActionResult:
+    """Execute Plaid action: get institution."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -461,8 +486,11 @@ async def get_institution(ctx, params: GetInstitutionParams) -> ActionResult:
     return ActionResult.success(entity, "Institution retrieved.")
 
 
-@chat.function("list_institutions", "List financial institutions known to Plaid, paginated.", action_type="read")
+@chat.function("list_institutions", "List financial institutions known to Plaid, paginated.", action_type="read",
+    data_model=PlaidObject,
+)
 async def list_institutions(ctx, params: ListInstitutionsParams) -> ActionResult:
+    """Execute Plaid action: list institutions."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -485,8 +513,11 @@ async def list_institutions(ctx, params: ListInstitutionsParams) -> ActionResult
     return ActionResult.success(entities, f"{len(entities)} institution(s).")
 
 
-@chat.function("search_institutions", "Search financial institutions known to Plaid by free-text name, optionally filtered to institutions supporting given products.", action_type="read")
+@chat.function("search_institutions", "Search financial institutions known to Plaid by free-text name, optionally filtered to institutions supporting given products.", action_type="read",
+    data_model=PlaidObject,
+)
 async def search_institutions(ctx, params: SearchInstitutionsParams) -> ActionResult:
+    """Execute Plaid action: search institutions."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -518,8 +549,10 @@ async def search_institutions(ctx, params: SearchInstitutionsParams) -> ActionRe
     "sync_transactions",
     "Fetch new/modified/removed transactions for an Item since a cursor (the recommended way to keep transactions up to date -- pass the returned next_cursor back in on your next call). Leave cursor blank on the very first call to get full history.",
     action_type="read",
+    data_model=PlaidObject,
 )
 async def sync_transactions(ctx, params: SyncTransactionsParams) -> ActionResult:
+    """Execute Plaid action: sync transactions."""
     extra = {"count": params.count}
     if params.cursor:
         extra["cursor"] = params.cursor
@@ -535,8 +568,11 @@ async def sync_transactions(ctx, params: SyncTransactionsParams) -> ActionResult
     )
 
 
-@chat.function("get_transactions", "Fetch transactions for an Item within a date range (legacy endpoint -- prefer sync_transactions for ongoing sync, this is fine for a one-off historical pull).", action_type="read")
+@chat.function("get_transactions", "Fetch transactions for an Item within a date range (legacy endpoint -- prefer sync_transactions for ongoing sync, this is fine for a one-off historical pull).", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_transactions(ctx, params: GetTransactionsParams) -> ActionResult:
+    """Execute Plaid action: get transactions."""
     extra = {
         "start_date": params.start_date, "end_date": params.end_date,
         "options": {"count": params.count, "offset": params.offset},
@@ -553,16 +589,22 @@ async def get_transactions(ctx, params: GetTransactionsParams) -> ActionResult:
     )
 
 
-@chat.function("refresh_transactions", "Ask Plaid to proactively check for new transaction data right now instead of waiting for its normal refresh schedule. Fires a TRANSACTIONS webhook when done.", action_type="write", effects=["plaid.transactions.refresh_requested"], event="plaid-connector.refresh_transactions")
+@chat.function("refresh_transactions", "Ask Plaid to proactively check for new transaction data right now instead of waiting for its normal refresh schedule. Fires a TRANSACTIONS webhook when done.", action_type="write", effects=["plaid.transactions.refresh_requested"], event="plaid-connector.refresh_transactions",
+    data_model=PlaidObject,
+)
 async def refresh_transactions(ctx, params: RefreshTransactionsParams) -> ActionResult:
+    """Execute Plaid action: refresh transactions."""
     data, err = await _item_call(ctx, params, "/transactions/refresh")
     if err:
         return err
     return ActionResult.success({"requested": True}, "Refresh requested -- watch for a TRANSACTIONS webhook.")
 
 
-@chat.function("get_recurring_transactions", "Read Plaid's own detected recurring transaction streams (subscriptions, regular income/bills) for an Item.", action_type="read")
+@chat.function("get_recurring_transactions", "Read Plaid's own detected recurring transaction streams (subscriptions, regular income/bills) for an Item.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_recurring_transactions(ctx, params: GetRecurringTransactionsParams) -> ActionResult:
+    """Execute Plaid action: get recurring transactions."""
     extra = {"account_ids": params.account_ids} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/transactions/recurring/get", extra)
     if err:
@@ -570,8 +612,11 @@ async def get_recurring_transactions(ctx, params: GetRecurringTransactionsParams
     return ActionResult.success(data, "Recurring transaction streams retrieved.")
 
 
-@chat.function("enrich_transactions", "Enrich your OWN raw transaction data (not from Plaid) with merchant name, logo, category, and payment channel using Plaid's Transactions Enrich product.", action_type="read")
+@chat.function("enrich_transactions", "Enrich your OWN raw transaction data (not from Plaid) with merchant name, logo, category, and payment channel using Plaid's Transactions Enrich product.", action_type="read",
+    data_model=PlaidObject,
+)
 async def enrich_transactions(ctx, params: EnrichTransactionsParams) -> ActionResult:
+    """Execute Plaid action: enrich transactions."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -593,8 +638,11 @@ async def enrich_transactions(ctx, params: EnrichTransactionsParams) -> ActionRe
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("get_auth", "Read account and routing numbers for an Item's depository accounts -- the core data needed to originate an ACH transfer.", action_type="read")
+@chat.function("get_auth", "Read account and routing numbers for an Item's depository accounts -- the core data needed to originate an ACH transfer.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_auth(ctx, params: GetAuthParams) -> ActionResult:
+    """Execute Plaid action: get auth."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/auth/get", extra)
     if err:
@@ -602,8 +650,11 @@ async def get_auth(ctx, params: GetAuthParams) -> ActionResult:
     return ActionResult.success(data, "Auth (account/routing numbers) retrieved.")
 
 
-@chat.function("get_identity", "Read the account holder's name, email, phone, and address on file at their bank, for an Item.", action_type="read")
+@chat.function("get_identity", "Read the account holder's name, email, phone, and address on file at their bank, for an Item.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_identity(ctx, params: GetIdentityParams) -> ActionResult:
+    """Execute Plaid action: get identity."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/identity/get", extra)
     if err:
@@ -611,8 +662,11 @@ async def get_identity(ctx, params: GetIdentityParams) -> ActionResult:
     return ActionResult.success(data, "Identity data retrieved.")
 
 
-@chat.function("match_identity", "Check how closely a name/phone/email/address you provide matches the account holder's real identity on file (Identity Match) -- useful for fraud/KYC checks before trusting a linked account.", action_type="read")
+@chat.function("match_identity", "Check how closely a name/phone/email/address you provide matches the account holder's real identity on file (Identity Match) -- useful for fraud/KYC checks before trusting a linked account.", action_type="read",
+    data_model=PlaidObject,
+)
 async def match_identity(ctx, params: MatchIdentityParams) -> ActionResult:
+    """Execute Plaid action: match identity."""
     extra = {"user": {k: v for k, v in {
         "legal_name": params.legal_name, "phone_number": params.phone_number,
         "email_address": params.email_address, "address": params.address or None,
@@ -628,8 +682,11 @@ async def match_identity(ctx, params: MatchIdentityParams) -> ActionResult:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("get_holdings", "Read investment holdings (securities owned, quantity, cost basis) for an Item's investment accounts.", action_type="read")
+@chat.function("get_holdings", "Read investment holdings (securities owned, quantity, cost basis) for an Item's investment accounts.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_holdings(ctx, params: GetHoldingsParams) -> ActionResult:
+    """Execute Plaid action: get holdings."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/investments/holdings/get", extra)
     if err:
@@ -637,8 +694,11 @@ async def get_holdings(ctx, params: GetHoldingsParams) -> ActionResult:
     return ActionResult.success(data, "Investment holdings retrieved.")
 
 
-@chat.function("get_investment_transactions", "Read investment transactions (buys, sells, dividends, fees) for an Item within a date range.", action_type="read")
+@chat.function("get_investment_transactions", "Read investment transactions (buys, sells, dividends, fees) for an Item within a date range.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_investment_transactions(ctx, params: GetInvestmentTransactionsParams) -> ActionResult:
+    """Execute Plaid action: get investment transactions."""
     extra = {
         "start_date": params.start_date, "end_date": params.end_date,
         "options": {"count": params.count, "offset": params.offset},
@@ -651,16 +711,22 @@ async def get_investment_transactions(ctx, params: GetInvestmentTransactionsPara
     return ActionResult.success(data, "Investment transactions retrieved.")
 
 
-@chat.function("refresh_investments", "Ask Plaid to proactively check for new investment data right now instead of waiting for its normal refresh schedule.", action_type="write", effects=["plaid.investments.refresh_requested"], event="plaid-connector.refresh_investments")
+@chat.function("refresh_investments", "Ask Plaid to proactively check for new investment data right now instead of waiting for its normal refresh schedule.", action_type="write", effects=["plaid.investments.refresh_requested"], event="plaid-connector.refresh_investments",
+    data_model=PlaidObject,
+)
 async def refresh_investments(ctx, params: RefreshInvestmentsParams) -> ActionResult:
+    """Execute Plaid action: refresh investments."""
     data, err = await _item_call(ctx, params, "/investments/refresh")
     if err:
         return err
     return ActionResult.success({"requested": True}, "Investments refresh requested.")
 
 
-@chat.function("get_liabilities", "Read liability details (student loans, credit cards, mortgages -- APR, balances, due dates) for an Item.", action_type="read")
+@chat.function("get_liabilities", "Read liability details (student loans, credit cards, mortgages -- APR, balances, due dates) for an Item.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_liabilities(ctx, params: GetLiabilitiesParams) -> ActionResult:
+    """Execute Plaid action: get liabilities."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/liabilities/get", extra)
     if err:
@@ -689,8 +755,11 @@ async def _env_call(ctx, connection_id: str, environment: str, path: str, body: 
     return data, None
 
 
-@chat.function("create_asset_report", "Create an Asset Report -- a point-in-time snapshot of balances/transactions across one or more Items, used for mortgage/loan underwriting.", action_type="write", effects=["plaid.asset_report.created"], event="plaid-connector.create_asset_report")
+@chat.function("create_asset_report", "Create an Asset Report -- a point-in-time snapshot of balances/transactions across one or more Items, used for mortgage/loan underwriting.", action_type="write", effects=["plaid.asset_report.created"], event="plaid-connector.create_asset_report",
+    data_model=PlaidObject,
+)
 async def create_asset_report(ctx, params: CreateAssetReportParams) -> ActionResult:
+    """Execute Plaid action: create asset report."""
     body = {"access_tokens": params.access_tokens, "days_requested": params.days_requested}
     options = {}
     if params.client_report_id:
@@ -707,8 +776,11 @@ async def create_asset_report(ctx, params: CreateAssetReportParams) -> ActionRes
     return ActionResult.success(data, "Asset Report requested -- poll get_asset_report until PRODUCT_READY fires.")
 
 
-@chat.function("get_asset_report", "Read a previously created Asset Report by its token, once Plaid's PRODUCT_READY webhook has fired.", action_type="read")
+@chat.function("get_asset_report", "Read a previously created Asset Report by its token, once Plaid's PRODUCT_READY webhook has fired.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_asset_report(ctx, params: GetAssetReportParams) -> ActionResult:
+    """Execute Plaid action: get asset report."""
     body = {"asset_report_token": params.asset_report_token, "include_insights": params.include_insights}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/get", body)
     if err:
@@ -716,8 +788,11 @@ async def get_asset_report(ctx, params: GetAssetReportParams) -> ActionResult:
     return ActionResult.success(data, "Asset Report retrieved.")
 
 
-@chat.function("get_asset_report_pdf", "Render a completed Asset Report as a PDF, base64-encoded.", action_type="read")
+@chat.function("get_asset_report_pdf", "Render a completed Asset Report as a PDF, base64-encoded.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_asset_report_pdf(ctx, params: GetAssetReportPdfParams) -> ActionResult:
+    """Execute Plaid action: get asset report pdf."""
     body = {"asset_report_token": params.asset_report_token}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/pdf/get", body)
     if err:
@@ -725,8 +800,11 @@ async def get_asset_report_pdf(ctx, params: GetAssetReportPdfParams) -> ActionRe
     return ActionResult.success(data, "Asset Report PDF retrieved.")
 
 
-@chat.function("refresh_asset_report", "Refresh an existing Asset Report with up-to-date balance/transaction data.", action_type="write", effects=["plaid.asset_report.refreshed"], event="plaid-connector.refresh_asset_report")
+@chat.function("refresh_asset_report", "Refresh an existing Asset Report with up-to-date balance/transaction data.", action_type="write", effects=["plaid.asset_report.refreshed"], event="plaid-connector.refresh_asset_report",
+    data_model=PlaidObject,
+)
 async def refresh_asset_report(ctx, params: RefreshAssetReportParams) -> ActionResult:
+    """Execute Plaid action: refresh asset report."""
     body = {"asset_report_token": params.asset_report_token, "days_requested": params.days_requested}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/refresh", body)
     if err:
@@ -734,8 +812,11 @@ async def refresh_asset_report(ctx, params: RefreshAssetReportParams) -> ActionR
     return ActionResult.success(data, "Asset Report refresh requested.")
 
 
-@chat.function("filter_asset_report", "Create a new, filtered copy of an Asset Report with specific accounts excluded -- e.g. to hide accounts irrelevant to a loan application.", action_type="write", effects=["plaid.asset_report.filtered"], event="plaid-connector.filter_asset_report")
+@chat.function("filter_asset_report", "Create a new, filtered copy of an Asset Report with specific accounts excluded -- e.g. to hide accounts irrelevant to a loan application.", action_type="write", effects=["plaid.asset_report.filtered"], event="plaid-connector.filter_asset_report",
+    data_model=PlaidObject,
+)
 async def filter_asset_report(ctx, params: FilterAssetReportParams) -> ActionResult:
+    """Execute Plaid action: filter asset report."""
     body = {"asset_report_token": params.asset_report_token, "account_ids_to_exclude": params.account_ids_to_exclude}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/filter", body)
     if err:
@@ -743,8 +824,11 @@ async def filter_asset_report(ctx, params: FilterAssetReportParams) -> ActionRes
     return ActionResult.success(data, "Filtered Asset Report requested.")
 
 
-@chat.function("remove_asset_report", "Permanently delete an Asset Report. Cannot be undone.", action_type="write", effects=["plaid.asset_report.removed"], event="plaid-connector.remove_asset_report")
+@chat.function("remove_asset_report", "Permanently delete an Asset Report. Cannot be undone.", action_type="write", effects=["plaid.asset_report.removed"], event="plaid-connector.remove_asset_report",
+    data_model=PlaidObject,
+)
 async def remove_asset_report(ctx, params: RemoveAssetReportParams) -> ActionResult:
+    """Execute Plaid action: remove asset report."""
     body = {"asset_report_token": params.asset_report_token}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/remove", body)
     if err:
@@ -752,8 +836,11 @@ async def remove_asset_report(ctx, params: RemoveAssetReportParams) -> ActionRes
     return ActionResult.success({"removed": True}, "Asset Report removed.")
 
 
-@chat.function("create_audit_copy", "Create an auditor-shareable copy of an Asset Report for a named auditing institution (e.g. Fannie Mae).", action_type="write", effects=["plaid.asset_report.audit_copy_created"], event="plaid-connector.create_audit_copy")
+@chat.function("create_audit_copy", "Create an auditor-shareable copy of an Asset Report for a named auditing institution (e.g. Fannie Mae).", action_type="write", effects=["plaid.asset_report.audit_copy_created"], event="plaid-connector.create_audit_copy",
+    data_model=PlaidObject,
+)
 async def create_audit_copy(ctx, params: CreateAuditCopyParams) -> ActionResult:
+    """Execute Plaid action: create audit copy."""
     body = {"asset_report_token": params.asset_report_token, "auditor_id": params.auditor_id}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/audit_copy/create", body)
     if err:
@@ -761,8 +848,11 @@ async def create_audit_copy(ctx, params: CreateAuditCopyParams) -> ActionResult:
     return ActionResult.success(data, "Audit copy created.")
 
 
-@chat.function("remove_audit_copy", "Revoke a previously created Asset Report audit copy.", action_type="write", effects=["plaid.asset_report.audit_copy_removed"], event="plaid-connector.remove_audit_copy")
+@chat.function("remove_audit_copy", "Revoke a previously created Asset Report audit copy.", action_type="write", effects=["plaid.asset_report.audit_copy_removed"], event="plaid-connector.remove_audit_copy",
+    data_model=PlaidObject,
+)
 async def remove_audit_copy(ctx, params: RemoveAuditCopyParams) -> ActionResult:
+    """Execute Plaid action: remove audit copy."""
     body = {"audit_copy_token": params.audit_copy_token}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/asset_report/audit_copy/remove", body)
     if err:
@@ -775,8 +865,11 @@ async def remove_audit_copy(ctx, params: RemoveAuditCopyParams) -> ActionResult:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("create_income_verification", "Start Payroll/Document income verification for an Item.", action_type="write", effects=["plaid.income_verification.created"], event="plaid-connector.create_income_verification")
+@chat.function("create_income_verification", "Start Payroll/Document income verification for an Item.", action_type="write", effects=["plaid.income_verification.created"], event="plaid-connector.create_income_verification",
+    data_model=PlaidObject,
+)
 async def create_income_verification(ctx, params: CreateIncomeVerificationParams) -> ActionResult:
+    """Execute Plaid action: create income verification."""
     body = {}
     if params.access_token:
         body["access_token"] = params.access_token
@@ -788,8 +881,11 @@ async def create_income_verification(ctx, params: CreateIncomeVerificationParams
     return ActionResult.success(data, "Income verification requested.")
 
 
-@chat.function("get_income_verification", "Read a previously created Payroll/Document income verification's result by its id.", action_type="read")
+@chat.function("get_income_verification", "Read a previously created Payroll/Document income verification's result by its id.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_income_verification(ctx, params: GetIncomeVerificationParams) -> ActionResult:
+    """Execute Plaid action: get income verification."""
     body = {"income_verification_id": params.income_verification_id}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/income/verification/paystubs/get", body)
     if err:
@@ -797,8 +893,11 @@ async def get_income_verification(ctx, params: GetIncomeVerificationParams) -> A
     return ActionResult.success(data, "Income verification retrieved.")
 
 
-@chat.function("get_bank_income", "Read a Bank Income estimate derived purely from an Item's own transaction history -- no separate payroll flow needed.", action_type="read")
+@chat.function("get_bank_income", "Read a Bank Income estimate derived purely from an Item's own transaction history -- no separate payroll flow needed.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_bank_income(ctx, params: GetBankIncomeParams) -> ActionResult:
+    """Execute Plaid action: get bank income."""
     data, err = await _item_call(ctx, params, "/credit/bank_income/get")
     if err:
         return err
@@ -810,8 +909,11 @@ async def get_bank_income(ctx, params: GetBankIncomeParams) -> ActionResult:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("create_transfer_authorization", "Get a real-time risk authorization decision BEFORE creating a Transfer -- Plaid requires a fresh authorization_id for every real Transfer.", action_type="write", effects=["plaid.transfer_authorization.created"], event="plaid-connector.create_transfer_authorization")
+@chat.function("create_transfer_authorization", "Get a real-time risk authorization decision BEFORE creating a Transfer -- Plaid requires a fresh authorization_id for every real Transfer.", action_type="write", effects=["plaid.transfer_authorization.created"], event="plaid-connector.create_transfer_authorization",
+    data_model=PlaidObject,
+)
 async def create_transfer_authorization(ctx, params: CreateTransferAuthorizationParams) -> ActionResult:
+    """Execute Plaid action: create transfer authorization."""
     extra = {"account_id": params.account_id, "type": params.type, "network": params.network,
              "amount": params.amount, "ach_class": params.ach_class,
              "user": params.user}
@@ -821,8 +923,11 @@ async def create_transfer_authorization(ctx, params: CreateTransferAuthorization
     return ActionResult.success(data, "Transfer authorization decision retrieved.")
 
 
-@chat.function("create_transfer", "Create a real Transfer (moves real money) using a prior authorization_id.", action_type="write", effects=["plaid.transfer.created"], event="plaid-connector.create_transfer")
+@chat.function("create_transfer", "Create a real Transfer (moves real money) using a prior authorization_id.", action_type="write", effects=["plaid.transfer.created"], event="plaid-connector.create_transfer",
+    data_model=PlaidObject,
+)
 async def create_transfer(ctx, params: CreateTransferParams) -> ActionResult:
+    """Execute Plaid action: create transfer."""
     extra = {"authorization_id": params.authorization_id, "account_id": params.account_id,
              "description": params.description, "amount": params.amount}
     data, err = await _item_call(ctx, params, "/transfer/create", extra)
@@ -831,8 +936,11 @@ async def create_transfer(ctx, params: CreateTransferParams) -> ActionResult:
     return ActionResult.success(data, "Transfer created.")
 
 
-@chat.function("get_transfer", "Read one Transfer in full by its id -- status, amount, and network.", action_type="read")
+@chat.function("get_transfer", "Read one Transfer in full by its id -- status, amount, and network.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_transfer(ctx, params: GetTransferParams) -> ActionResult:
+    """Execute Plaid action: get transfer."""
     body = {"transfer_id": params.transfer_id}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/transfer/get", body)
     if err:
@@ -840,8 +948,11 @@ async def get_transfer(ctx, params: GetTransferParams) -> ActionResult:
     return ActionResult.success(data, "Transfer retrieved.")
 
 
-@chat.function("list_transfers", "List Transfers on this Plaid account.", action_type="read")
+@chat.function("list_transfers", "List Transfers on this Plaid account.", action_type="read",
+    data_model=PlaidObject,
+)
 async def list_transfers(ctx, params: ListTransfersParams) -> ActionResult:
+    """Execute Plaid action: list transfers."""
     body = {"count": params.count, "offset": params.offset}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/transfer/list", body)
     if err:
@@ -850,8 +961,11 @@ async def list_transfers(ctx, params: ListTransfersParams) -> ActionResult:
     return ActionResult.success(transfers, f"{len(transfers)} transfer(s).")
 
 
-@chat.function("cancel_transfer", "Cancel a Transfer while it is still pending.", action_type="write", effects=["plaid.transfer.canceled"], event="plaid-connector.cancel_transfer")
+@chat.function("cancel_transfer", "Cancel a Transfer while it is still pending.", action_type="write", effects=["plaid.transfer.canceled"], event="plaid-connector.cancel_transfer",
+    data_model=PlaidObject,
+)
 async def cancel_transfer(ctx, params: CancelTransferParams) -> ActionResult:
+    """Execute Plaid action: cancel transfer."""
     body = {"transfer_id": params.transfer_id}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/transfer/cancel", body)
     if err:
@@ -859,8 +973,11 @@ async def cancel_transfer(ctx, params: CancelTransferParams) -> ActionResult:
     return ActionResult.success(data, "Transfer canceled.")
 
 
-@chat.function("create_transfer_refund", "Refund a completed Transfer, fully or partially.", action_type="write", effects=["plaid.transfer.refunded"], event="plaid-connector.create_transfer_refund")
+@chat.function("create_transfer_refund", "Refund a completed Transfer, fully or partially.", action_type="write", effects=["plaid.transfer.refunded"], event="plaid-connector.create_transfer_refund",
+    data_model=PlaidObject,
+)
 async def create_transfer_refund(ctx, params: CreateTransferRefundParams) -> ActionResult:
+    """Execute Plaid action: create transfer refund."""
     body = {"transfer_id": params.transfer_id}
     if params.amount:
         body["amount"] = params.amount
@@ -870,8 +987,11 @@ async def create_transfer_refund(ctx, params: CreateTransferRefundParams) -> Act
     return ActionResult.success(data, "Transfer refund created.")
 
 
-@chat.function("list_transfer_events", "List Transfer lifecycle events (posted, settled, failed, returned, swept) -- your source of truth for reconciling Transfer status changes.", action_type="read")
+@chat.function("list_transfer_events", "List Transfer lifecycle events (posted, settled, failed, returned, swept) -- your source of truth for reconciling Transfer status changes.", action_type="read",
+    data_model=PlaidObject,
+)
 async def list_transfer_events(ctx, params: ListTransferEventsParams) -> ActionResult:
+    """Execute Plaid action: list transfer events."""
     body = {"count": params.count, "offset": params.offset}
     if params.transfer_id:
         body["transfer_id"] = params.transfer_id
@@ -887,8 +1007,11 @@ async def list_transfer_events(ctx, params: ListTransferEventsParams) -> ActionR
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("evaluate_signal", "Get a real-time ACH return-risk score for a proposed debit BEFORE you initiate it, from Plaid Signal.", action_type="read")
+@chat.function("evaluate_signal", "Get a real-time ACH return-risk score for a proposed debit BEFORE you initiate it, from Plaid Signal.", action_type="read",
+    data_model=PlaidObject,
+)
 async def evaluate_signal(ctx, params: EvaluateSignalParams) -> ActionResult:
+    """Execute Plaid action: evaluate signal."""
     extra = {"account_id": params.account_id, "client_transaction_id": params.client_transaction_id,
              "amount": params.amount}
     if params.user:
@@ -899,8 +1022,11 @@ async def evaluate_signal(ctx, params: EvaluateSignalParams) -> ActionResult:
     return ActionResult.success(data, "Signal risk score retrieved.")
 
 
-@chat.function("report_signal_decision", "Report back to Plaid whether you actually initiated an ACH transaction after seeing its Signal score -- improves future score accuracy.", action_type="write", effects=["plaid.signal_decision.reported"], event="plaid-connector.report_signal_decision")
+@chat.function("report_signal_decision", "Report back to Plaid whether you actually initiated an ACH transaction after seeing its Signal score -- improves future score accuracy.", action_type="write", effects=["plaid.signal_decision.reported"], event="plaid-connector.report_signal_decision",
+    data_model=PlaidObject,
+)
 async def report_signal_decision(ctx, params: ReportSignalDecisionParams) -> ActionResult:
+    """Execute Plaid action: report signal decision."""
     body = {"client_transaction_id": params.client_transaction_id, "initiated": params.initiated}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/signal/decision/report", body)
     if err:
@@ -908,8 +1034,11 @@ async def report_signal_decision(ctx, params: ReportSignalDecisionParams) -> Act
     return ActionResult.success(data, "Signal decision reported.")
 
 
-@chat.function("create_watchlist_screening", "Screen a person against global watchlists (sanctions, PEP, adverse media) with Plaid Monitor.", action_type="write", effects=["plaid.watchlist_screening.created"], event="plaid-connector.create_watchlist_screening")
+@chat.function("create_watchlist_screening", "Screen a person against global watchlists (sanctions, PEP, adverse media) with Plaid Monitor.", action_type="write", effects=["plaid.watchlist_screening.created"], event="plaid-connector.create_watchlist_screening",
+    data_model=PlaidObject,
+)
 async def create_watchlist_screening(ctx, params: CreateWatchlistScreeningParams) -> ActionResult:
+    """Execute Plaid action: create watchlist screening."""
     body = {"search_terms": params.search_terms}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/watchlist_screening/individual/create", body)
     if err:
@@ -917,8 +1046,11 @@ async def create_watchlist_screening(ctx, params: CreateWatchlistScreeningParams
     return ActionResult.success(data, "Watchlist screening created.")
 
 
-@chat.function("get_watchlist_screening", "Read one watchlist screening's result in full by its id -- match status and any hits found.", action_type="read")
+@chat.function("get_watchlist_screening", "Read one watchlist screening's result in full by its id -- match status and any hits found.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_watchlist_screening(ctx, params: GetWatchlistScreeningParams) -> ActionResult:
+    """Execute Plaid action: get watchlist screening."""
     body = {"id": params.screening_id}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/watchlist_screening/individual/get", body)
     if err:
@@ -926,8 +1058,11 @@ async def get_watchlist_screening(ctx, params: GetWatchlistScreeningParams) -> A
     return ActionResult.success(data, "Watchlist screening retrieved.")
 
 
-@chat.function("list_watchlist_screenings", "List watchlist screenings created on this connection, most recent first.", action_type="read")
+@chat.function("list_watchlist_screenings", "List watchlist screenings created on this connection, most recent first.", action_type="read",
+    data_model=PlaidObject,
+)
 async def list_watchlist_screenings(ctx, params: ListWatchlistScreeningsParams) -> ActionResult:
+    """Execute Plaid action: list watchlist screenings."""
     body = {"count": params.count}
     if params.cursor:
         body["cursor"] = params.cursor
@@ -938,8 +1073,11 @@ async def list_watchlist_screenings(ctx, params: ListWatchlistScreeningsParams) 
     return ActionResult.success(screenings, f"{len(screenings)} watchlist screening(s).")
 
 
-@chat.function("review_watchlist_screening", "Record a human review decision (confirmed match / dismissed as false positive) on a watchlist screening's hit.", action_type="write", effects=["plaid.watchlist_screening.reviewed"], event="plaid-connector.review_watchlist_screening")
+@chat.function("review_watchlist_screening", "Record a human review decision (confirmed match / dismissed as false positive) on a watchlist screening's hit.", action_type="write", effects=["plaid.watchlist_screening.reviewed"], event="plaid-connector.review_watchlist_screening",
+    data_model=PlaidObject,
+)
 async def review_watchlist_screening(ctx, params: ReviewWatchlistScreeningParams) -> ActionResult:
+    """Execute Plaid action: review watchlist screening."""
     body = {"screening_id": params.screening_id, "confirmed_hits": params.confirmed_hits,
             "dismissed_hits": params.dismissed_hits, "comment": params.comment}
     data, err = await _env_call(ctx, params.connection_id, params.environment, "/watchlist_screening/individual/review/create", body)
@@ -953,8 +1091,11 @@ async def review_watchlist_screening(ctx, params: ReviewWatchlistScreeningParams
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("create_processor_token", "Create a processor_token for an account, to hand it off to a supported payment processor (e.g. Dwolla, Stripe, Braintree) without exposing your Plaid access_token to them.", action_type="write", effects=["plaid.processor_token.created"], event="plaid-connector.create_processor_token")
+@chat.function("create_processor_token", "Create a processor_token for an account, to hand it off to a supported payment processor (e.g. Dwolla, Stripe, Braintree) without exposing your Plaid access_token to them.", action_type="write", effects=["plaid.processor_token.created"], event="plaid-connector.create_processor_token",
+    data_model=PlaidObject,
+)
 async def create_processor_token(ctx, params: CreateProcessorTokenParams) -> ActionResult:
+    """Execute Plaid action: create processor token."""
     extra = {"account_id": params.account_id, "processor": params.processor}
     data, err = await _item_call(ctx, params, "/processor/token/create", extra)
     if err:
@@ -962,8 +1103,11 @@ async def create_processor_token(ctx, params: CreateProcessorTokenParams) -> Act
     return ActionResult.success(data, "Processor token created.")
 
 
-@chat.function("create_bank_account_token", "Create a bank_account_token for an account -- a newer, processor-agnostic alternative to create_processor_token for handing off an Item to a partner.", action_type="write", effects=["plaid.bank_account_token.created"], event="plaid-connector.create_bank_account_token")
+@chat.function("create_bank_account_token", "Create a bank_account_token for an account -- a newer, processor-agnostic alternative to create_processor_token for handing off an Item to a partner.", action_type="write", effects=["plaid.bank_account_token.created"], event="plaid-connector.create_bank_account_token",
+    data_model=PlaidObject,
+)
 async def create_bank_account_token(ctx, params: CreateBankAccountTokenParams) -> ActionResult:
+    """Execute Plaid action: create bank account token."""
     extra = {"account_id": params.account_id}
     data, err = await _item_call(ctx, params, "/processor/bank_account_token/create", extra)
     if err:
@@ -976,8 +1120,11 @@ async def create_bank_account_token(ctx, params: CreateBankAccountTokenParams) -
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("create_sandbox_public_token", "Create a fake public_token for a Sandbox test institution, so you can exercise exchange_public_token without going through real Plaid Link.", action_type="write", effects=["plaid.sandbox_public_token.created"], event="plaid-connector.create_sandbox_public_token")
+@chat.function("create_sandbox_public_token", "Create a fake public_token for a Sandbox test institution, so you can exercise exchange_public_token without going through real Plaid Link.", action_type="write", effects=["plaid.sandbox_public_token.created"], event="plaid-connector.create_sandbox_public_token",
+    data_model=PlaidObject,
+)
 async def create_sandbox_public_token(ctx, params: CreateSandboxPublicTokenParams) -> ActionResult:
+    """Execute Plaid action: create sandbox public token."""
     body = {"institution_id": params.institution_id, "initial_products": params.initial_products}
     data, err = await _env_call(ctx, params.connection_id, "sandbox", "/sandbox/public_token/create", body)
     if err:
@@ -985,8 +1132,11 @@ async def create_sandbox_public_token(ctx, params: CreateSandboxPublicTokenParam
     return ActionResult.success(data, "Sandbox public token created.")
 
 
-@chat.function("fire_sandbox_webhook", "Force a Sandbox Item to fire a specific webhook right now, so you can test your webhook handler without waiting for real data changes.", action_type="write", effects=["plaid.sandbox_webhook.fired"], event="plaid-connector.fire_sandbox_webhook")
+@chat.function("fire_sandbox_webhook", "Force a Sandbox Item to fire a specific webhook right now, so you can test your webhook handler without waiting for real data changes.", action_type="write", effects=["plaid.sandbox_webhook.fired"], event="plaid-connector.fire_sandbox_webhook",
+    data_model=PlaidObject,
+)
 async def fire_sandbox_webhook(ctx, params: FireSandboxWebhookParams) -> ActionResult:
+    """Execute Plaid action: fire sandbox webhook."""
     extra = {"webhook_code": params.webhook_code, "webhook_type": params.webhook_type}
     data, err = await _item_call(ctx, params, "/sandbox/item/fire_webhook", extra)
     if err:
@@ -994,16 +1144,22 @@ async def fire_sandbox_webhook(ctx, params: FireSandboxWebhookParams) -> ActionR
     return ActionResult.success(data, "Sandbox webhook fired.")
 
 
-@chat.function("reset_sandbox_item_login", "Force a Sandbox Item into ITEM_LOGIN_REQUIRED, to test your reauthentication (update-mode Link) flow on demand.", action_type="write", effects=["plaid.sandbox_item.reset"], event="plaid-connector.reset_sandbox_item_login")
+@chat.function("reset_sandbox_item_login", "Force a Sandbox Item into ITEM_LOGIN_REQUIRED, to test your reauthentication (update-mode Link) flow on demand.", action_type="write", effects=["plaid.sandbox_item.reset"], event="plaid-connector.reset_sandbox_item_login",
+    data_model=PlaidObject,
+)
 async def reset_sandbox_item_login(ctx, params: ResetSandboxItemLoginParams) -> ActionResult:
+    """Execute Plaid action: reset sandbox item login."""
     data, err = await _item_call(ctx, params, "/sandbox/item/reset_login")
     if err:
         return err
     return ActionResult.success(data, "Sandbox Item login reset requested.")
 
 
-@chat.function("set_sandbox_verification_status", "Set a Sandbox account's micro-deposit verification status, to test your Auth verification flow's different outcomes on demand.", action_type="write", effects=["plaid.sandbox_verification.set"], event="plaid-connector.set_sandbox_verification_status")
+@chat.function("set_sandbox_verification_status", "Set a Sandbox account's micro-deposit verification status, to test your Auth verification flow's different outcomes on demand.", action_type="write", effects=["plaid.sandbox_verification.set"], event="plaid-connector.set_sandbox_verification_status",
+    data_model=PlaidObject,
+)
 async def set_sandbox_verification_status(ctx, params: SetSandboxVerificationStatusParams) -> ActionResult:
+    """Execute Plaid action: set sandbox verification status."""
     extra = {"account_id": params.account_id, "verification_status": params.verification_status}
     data, err = await _item_call(ctx, params, "/sandbox/item/set_verification_status", extra)
     if err:
@@ -1011,8 +1167,11 @@ async def set_sandbox_verification_status(ctx, params: SetSandboxVerificationSta
     return ActionResult.success(data, "Sandbox verification status set.")
 
 
-@chat.function("create_sandbox_transactions", "Inject fake transactions into a Sandbox Item, so downstream transactions/enrichment testing has realistic data to work with.", action_type="write", effects=["plaid.sandbox_transactions.created"], event="plaid-connector.create_sandbox_transactions")
+@chat.function("create_sandbox_transactions", "Inject fake transactions into a Sandbox Item, so downstream transactions/enrichment testing has realistic data to work with.", action_type="write", effects=["plaid.sandbox_transactions.created"], event="plaid-connector.create_sandbox_transactions",
+    data_model=PlaidObject,
+)
 async def create_sandbox_transactions(ctx, params: CreateSandboxTransactionsParams) -> ActionResult:
+    """Execute Plaid action: create sandbox transactions."""
     extra = {"transactions": params.transactions}
     data, err = await _item_call(ctx, params, "/sandbox/transactions/create", extra)
     if err:
@@ -1025,8 +1184,11 @@ async def create_sandbox_transactions(ctx, params: CreateSandboxTransactionsPara
 # ──────────────────────────────────────────────────────────────────────────
 
 
-@chat.function("audit_item_health", "Build one aggregated health report across several Plaid Items: which ones need reauthentication (ITEM_LOGIN_REQUIRED), which have pending errors, and their institution names.", action_type="read")
+@chat.function("audit_item_health", "Build one aggregated health report across several Plaid Items: which ones need reauthentication (ITEM_LOGIN_REQUIRED), which have pending errors, and their institution names.", action_type="read",
+    data_model=PlaidObject,
+)
 async def audit_item_health(ctx, params: AuditItemHealthParams) -> ActionResult:
+    """Execute Plaid action: audit item health."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -1061,8 +1223,11 @@ async def audit_item_health(ctx, params: AuditItemHealthParams) -> ActionResult:
     )
 
 
-@chat.function("get_spending_overview", "Summarize spending by category for an Item's transactions over a date range -- total spend, top categories, and transaction count.", action_type="read")
+@chat.function("get_spending_overview", "Summarize spending by category for an Item's transactions over a date range -- total spend, top categories, and transaction count.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_spending_overview(ctx, params: GetSpendingOverviewParams) -> ActionResult:
+    """Execute Plaid action: get spending overview."""
     extra = {
         "start_date": params.start_date, "end_date": params.end_date,
         "options": {"count": 500, "offset": 0},
@@ -1089,8 +1254,11 @@ async def get_spending_overview(ctx, params: GetSpendingOverviewParams) -> Actio
     )
 
 
-@chat.function("detect_recurring_charges", "Flag subscriptions/recurring charges the end user may have forgotten about, using Plaid's own recurring-transaction detection.", action_type="read")
+@chat.function("detect_recurring_charges", "Flag subscriptions/recurring charges the end user may have forgotten about, using Plaid's own recurring-transaction detection.", action_type="read",
+    data_model=PlaidObject,
+)
 async def detect_recurring_charges(ctx, params: DetectRecurringChargesParams) -> ActionResult:
+    """Execute Plaid action: detect recurring charges."""
     extra = {"account_ids": params.account_ids} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/transactions/recurring/get", extra)
     if err:
@@ -1103,8 +1271,11 @@ async def detect_recurring_charges(ctx, params: DetectRecurringChargesParams) ->
     )
 
 
-@chat.function("get_net_worth_snapshot", "Combine balances across several Items (depository + investments + liabilities) into one net-worth snapshot: assets, liabilities, and the difference.", action_type="read")
+@chat.function("get_net_worth_snapshot", "Combine balances across several Items (depository + investments + liabilities) into one net-worth snapshot: assets, liabilities, and the difference.", action_type="read",
+    data_model=PlaidObject,
+)
 async def get_net_worth_snapshot(ctx, params: GetNetWorthSnapshotParams) -> ActionResult:
+    """Execute Plaid action: get net worth snapshot."""
     connections = await _get_connections(ctx)
     conn = await _resolve_connection(ctx, params.connection_id)
     if not conn:
@@ -1142,8 +1313,11 @@ async def get_net_worth_snapshot(ctx, params: GetNetWorthSnapshotParams) -> Acti
     )
 
 
-@chat.function("check_low_balance_risk", "Flag accounts on an Item whose current balance is at or below a threshold -- a quick way to catch overdraft risk before it happens.", action_type="read")
+@chat.function("check_low_balance_risk", "Flag accounts on an Item whose current balance is at or below a threshold -- a quick way to catch overdraft risk before it happens.", action_type="read",
+    data_model=PlaidObject,
+)
 async def check_low_balance_risk(ctx, params: CheckLowBalanceRiskParams) -> ActionResult:
+    """Execute Plaid action: check low balance risk."""
     extra = {"options": {"account_ids": params.account_ids}} if params.account_ids else None
     data, err = await _item_call(ctx, params, "/accounts/get", extra)
     if err:
@@ -1159,8 +1333,11 @@ async def check_low_balance_risk(ctx, params: CheckLowBalanceRiskParams) -> Acti
     )
 
 
-@chat.function("list_available_products", "List every Plaid product this connector supports, with a one-line description of what each does -- a quick reference before calling create_link_token.", action_type="read")
+@chat.function("list_available_products", "List every Plaid product this connector supports, with a one-line description of what each does -- a quick reference before calling create_link_token.", action_type="read",
+    data_model=PlaidObject,
+)
 async def list_available_products(ctx, params: ListAvailableProductsParams) -> ActionResult:
+    """Execute Plaid action: list available products."""
     products = [
         {"product": "transactions", "description": "Categorized transaction history via sync_transactions/get_transactions."},
         {"product": "auth", "description": "Account and routing numbers for ACH origination."},

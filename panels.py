@@ -45,7 +45,7 @@ import handlers as h
 
 def _settings_button() -> ui.UINode:
     return ui.Button(
-        "App settings", variant="secondary", size="sm", full_width=True,
+        "App settings", variant="secondary", size="sm",
         icon="settings", on_click=ui.Call("__panel__plaid_settings"),
     )
 
@@ -86,31 +86,26 @@ def _connect_section() -> ui.UINode:
         ui.Form(
             action="connect_plaid",
             submit_label="Verify and connect",
-            full_width=True,
             children=[
                 ui.Stack(direction="v", gap=1, align="stretch", children=[
                     ui.Text("Client ID", variant="caption"),
                     ui.Input(param_name="client_id",
-                              placeholder="5f8a2c1e9b0d3a0012f4b6a7",
-                              full_width=True),
+                              placeholder="5f8a2c1e9b0d3a0012f4b6a7"),
                 ]),
                 ui.Stack(direction="v", gap=1, align="stretch", children=[
                     ui.Text("Sandbox secret (optional)", variant="caption"),
                     ui.Password(param_name="sandbox_secret",
-                                 placeholder="Paste your Sandbox secret to test with fake bank data",
-                                 full_width=True),
+                                 placeholder="Paste your Sandbox secret to test with fake bank data"),
                 ]),
                 ui.Stack(direction="v", gap=1, align="stretch", children=[
                     ui.Text("Production secret (optional)", variant="caption"),
                     ui.Password(param_name="production_secret",
-                                 placeholder="Paste your Production secret for real bank data",
-                                 full_width=True),
+                                 placeholder="Paste your Production secret for real bank data"),
                 ]),
                 ui.Stack(direction="v", gap=1, align="stretch", children=[
                     ui.Text("Label (optional)", variant="caption"),
                     ui.Input(param_name="label",
-                              placeholder="e.g. Main fintech app",
-                              full_width=True),
+                              placeholder="e.g. Main fintech app"),
                 ]),
             ],
         ),
