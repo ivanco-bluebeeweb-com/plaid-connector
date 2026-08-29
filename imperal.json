@@ -1,6 +1,6 @@
 {
   "manifest_schema_version": 3,
-  "sdk_version": "5.9.12",
+  "sdk_version": "5.13.0",
   "app_id": "plaid-connector",
   "version": "0.1.0",
   "name": "Plaid",
@@ -8024,7 +8024,7 @@
       "slot": "left",
       "title": "Plaid",
       "tree": {},
-      "icon": "\ud83c\udfe6",
+      "icon": "🏦",
       "refresh": "manual",
       "center_overlay": false,
       "default_width": 320,
@@ -8045,7 +8045,7 @@
       "slot": "center",
       "title": "Plaid",
       "tree": {},
-      "icon": "\ud83c\udfe6",
+      "icon": "🏦",
       "refresh": "manual",
       "center_overlay": true
     },
