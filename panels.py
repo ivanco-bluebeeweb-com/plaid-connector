@@ -134,6 +134,9 @@ async def plaid_connect_panel(ctx, **kwargs) -> object:
         ui.Text("Connected accounts", variant="subtitle"),
         _connections_section(connections),
         ui.Divider(),
+        ui.Button("View account overview", variant="primary", size="sm", full_width=True,
+                  icon="Landmark", on_click=ui.Call("__panel__plaid_center")),
+        ui.Divider(),
         _connect_section(),
         ui.Divider(),
         _settings_button(),
@@ -181,7 +184,39 @@ async def plaid_center_panel(ctx, **kwargs) -> object:
     slot="center" panel is registered but the Panel app never fetches it
     at session-init without that flag. Text is the shared canonical
     wording -- must stay identical across every app in this situation."""
-    return ui.Empty(
-        message="Nothing to show here -- this app is managed entirely from the sidebar.",
-        icon="👈",
-    )
+    connections = await h._get_connections(ctx)
+    if not connections:
+        return ui.Empty(message="Connect a Plaid account from the sidebar to see it here.", icon="🏦")
+
+    from schemas import ListAvailableProductsParams
+    result = await h.list_available_products(ctx, ListAvailableProductsParams())
+    body: list[ui.UINode] = [ui.Text("Account overview", variant="subtitle")]
+    body.append(ui.Stats(children=[
+        ui.Stat(label="Connected accounts", value=str(len(connections))),
+    ]))
+    for c in connections:
+        envs = []
+        if c.get("has_sandbox"):
+            envs.append("Sandbox")
+        if c.get("has_production"):
+            envs.append("Production")
+        body.append(ui.Stack(direction="h", gap=2, align="center", children=[
+            ui.Badge(label=" + ".join(envs) or "No secrets", color="green" if envs else "gray"),
+            ui.Text(c.get("label") or c.get("id", ""), variant="body"),
+        ]))
+
+    body.append(ui.Divider())
+    body.append(ui.Text("Available products", variant="subtitle"))
+    if result.success and result.data:
+        products = result.data if isinstance(result.data, list) else [result.data]
+        for p in products[:15]:
+            name = p.get("product") if isinstance(p, dict) else str(p)
+            desc = p.get("description", "") if isinstance(p, dict) else ""
+            body.append(ui.Stack(direction="v", gap=0, align="stretch", children=[
+                ui.Text(f"• {name}", variant="body"),
+                ui.Text(desc, variant="caption"),
+            ]))
+    else:
+        body.append(ui.Text("Could not load the product list.", variant="caption"))
+
+    return ui.Stack(direction="v", gap=3, align="stretch", children=body)
